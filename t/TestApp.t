@@ -36,7 +36,7 @@ my %connections;
 };
 
 my $last_set_callback;
-my $expecting;
+my $expecting = '';
 {   package Test::XMPP2;
     sub connect {
         return 1;
@@ -116,7 +116,7 @@ require Net::XMPP2::Parser;
            $expecting = 'iq_reply';
            my $writer = Test::Writer->new();
 
-           $connections{'foo/iq_req'}{callbacks}{iq_get_request_xml}->($node);
+           $connections{'foo/iq_req'}{callbacks}{iq_get_request_xml}->($parser,$node);
 
            ok($last_set_callback, 'reply sent');
            $last_set_callback->($writer) if $last_set_callback;
@@ -141,7 +141,7 @@ require Net::XMPP2::Parser;
            $expecting = 'iq_reply';
            my $writer = Test::Writer->new();
 
-           $connections{'foo/iq_req_xml'}{callbacks}{iq_set_request_xml}->($node);
+           $connections{'foo/iq_req_xml'}{callbacks}{iq_set_request_xml}->($parser,$node);
 
            ok($last_set_callback, 'reply sent');
            $last_set_callback->($writer) if $last_set_callback;
@@ -166,7 +166,7 @@ require Net::XMPP2::Parser;
            $expecting = 'message';
            my $writer = Test::Writer->new();
 
-           $connections{'foo/message'}{callbacks}{message_xml}->($node);
+           $connections{'foo/message'}{callbacks}{message_xml}->($parser,$node);
 
            ok($last_set_callback, 'reply sent');
            $last_set_callback->($writer) if $last_set_callback;
@@ -191,7 +191,7 @@ require Net::XMPP2::Parser;
            $expecting = 'presence';
            my $writer = Test::Writer->new();
 
-           $connections{'foo/presence'}{callbacks}{message_xml}->($node);
+           $connections{'foo/presence'}{callbacks}{message_xml}->($parser,$node);
 
            ok($last_set_callback, 'reply sent');
            $last_set_callback->($writer) if $last_set_callback;

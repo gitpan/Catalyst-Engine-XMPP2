@@ -1,7 +1,7 @@
 {   package Catalyst::Engine::XMPP2;
     use strict;
     use warnings;
-    our $VERSION = '0.1';
+    our $VERSION = '0.2';
     use base qw(Catalyst::Engine::Embeddable);
     use Event qw(loop);
     use Encode;
@@ -78,7 +78,7 @@
         delete $template{jid};
         delete $template{resource};
 
-        $app->log->debug('Initializing Net::XMPP2::Connection objects');
+        #$app->log->debug('Initializing Net::XMPP2::Connection objects');
 
         foreach my $resource (@resources) {
             $self->connections->{$resource} =
@@ -86,14 +86,14 @@
                                           %template);
         }
 
-        $app->log->debug('Connecting XMPP resources.');
+        #$app->log->debug('Connecting XMPP resources.');
 
         foreach my $resource (@resources) {
             $self->connections->{$resource}->connect
               or die 'Could not connect resource: '.$resource.', '.$!;
             $self->connections->{$resource}->reg_cb
               (stream_ready => sub {
-                   $app->log->debug($resource.' ready.');
+                   $self->connections->{$resource}->send_presence('available', sub{});
                },
                bind_error => sub {
                    die 'Error binding resource '.$resource.': '.shift;
@@ -102,23 +102,23 @@
                # handle all other types of events, but we can actually process
                # them the same way.
                iq_get_request_xml => sub {
-                   my $node = shift;
-                   $app->log->debug('Received an iq get stanza at '.$resource);
+                   my ($conn, $node) = @_;
+                   #$app->log->debug('Received an iq get stanza at '.$resource);
                    $self->handle_xmpp_node($app, $resource, $node, 'iq');
                },
                iq_set_request_xml => sub {
-                   my $node = shift;
-                   $app->log->debug('Received an iq set stanza at '.$resource);
+                   my ($conn, $node) = @_;
+                   #$app->log->debug('Received an iq set stanza at '.$resource);
                    $self->handle_xmpp_node($app, $resource, $node, 'iq');
                },
                message_xml => sub {
-                   my $node = shift;
-                   $app->log->debug('Received a message stanza at '.$resource);
+                   my ($conn, $node) = @_;
+                   #$app->log->debug('Received a message stanza at '.$resource);
                    $self->handle_xmpp_node($app, $resource, $node, 'message');
                },
                presence_xml => sub {
-                   my $node = shift;
-                   $app->log->debug('Received a presence stanza at '.$resource);
+                   my ($conn, $node) = @_;
+                   #$app->log->debug('Received a presence stanza at '.$resource);
                    $self->handle_xmpp_node($app, $resource, $node, 'presence');
                });
         }
@@ -129,17 +129,22 @@
     sub handle_xmpp_node {
         my ($self, $app, $resource, $node, $type) = @_;
 
+
         my $config = $app->config->{'Engine::XMPP2'};
         my $url = 'xmpp://'.$config->{username}.'@'.$config->{domain}.'/'.$resource;
+
         my $request = HTTP::Request->new(POST => $url);
+
         $request->header('Content-type' => 'application/xml; charset=utf-8');
         $request->header('XMPP_Stanza' => $type);
         $request->header('XMPP_Resource' => $resource);
+
         $request->header('XMPP_Stanza_'.$_ => $node->attr($_))
           for grep { $node->attr($_) } qw(to from id type xml:lang);
         my $content = encode('utf8', join '', $node->text, map { $_->as_string } $node->nodes);
         $request->content_length( length($content) );
         $request->content( $content);
+
 
         my $response;
         $app->handle_request($request, \$response);
@@ -148,7 +153,7 @@
           grep { $response->header($_) } qw(to from id type xml:lang);
 
         if ($response->is_success && $type ne 'iq') {
-            $app->log->debug('Request ended successfully, no response needed.');
+            #$app->log->debug('Request ended successfully, no response needed.');
         } elsif ($response->is_success) {
             $self->connections->{$resource}->reply_iq_result
               ($node->attr('id'), sub {
