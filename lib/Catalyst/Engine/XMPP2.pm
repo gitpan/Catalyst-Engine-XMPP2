@@ -1,7 +1,7 @@
 {   package Catalyst::Engine::XMPP2;
     use strict;
     use warnings;
-    our $VERSION = '0.2';
+    our $VERSION = '0.3';
     use base qw(Catalyst::Engine::Embeddable);
     use Event qw(loop);
     use Encode;
@@ -141,12 +141,14 @@
 
         $request->header('XMPP_Stanza_'.$_ => $node->attr($_))
           for grep { $node->attr($_) } qw(to from id type xml:lang);
-        my $content = encode('utf8', join '', $node->text, map { $_->as_string } $node->nodes);
+        my $content = join '', $node->text, map { $_->as_string } $node->nodes;
         $request->content_length( length($content) );
         $request->content( $content);
 
+        #$app->log->debug('[Request Content] '.$request->content);
 
         my $response;
+
         $app->handle_request($request, \$response);
 
         my %response_attrs = map { $_ => $response->header('XMPP_Stanza_'.$_) }
@@ -155,14 +157,18 @@
         if ($response->is_success && $type ne 'iq') {
             #$app->log->debug('Request ended successfully, no response needed.');
         } elsif ($response->is_success) {
+            my $content_type = $response->header('Content-type');
+            my $content_raw = $response->content();
             $self->connections->{$resource}->reply_iq_result
-              ($node->attr('id'), sub {
+              ($node, sub {
                    my $xml_writer = shift;
-                   if ($response->header('Content-type') &&
-                       $response->header('Content-type') =~ /xml/) {
-                       $xml_writer->raw($response->content);
+                   my $ctype = $content_type;
+                   my $craw = $content_raw;
+                   if ($ctype &&
+                       $ctype =~ /xml/) {
+                       $xml_writer->raw($craw);
                    } else {
-                       $xml_writer->raw('<body>'.$response->content.'</body>');
+                       $xml_writer->raw('<body>'.$craw.'</body>');
                    }
                }, %response_attrs);
         } else {
@@ -175,14 +181,15 @@
             }
             if ($node->name eq 'iq') {
                 $self->connections->{$resource}->reply_iq_error
-                  ($node->attr('id'), $type, $cond, %response_attrs);
+                  ($node, $type, $cond, %response_attrs);
             } else {
+                my $content_raw = $response->content();
                 $self->connections->{$resource}->send_message
                   ($node->attr('from'), 'error', sub {
                        my $xml_writer = shift;
                        $xml_writer->raw($content.'<error type="'.$type.'">'.
                                         '<'.$cond.' xmlns=\'urn:ietf:params:xml:ns:xmpp-stanzas\'/>'.
-                                        '<text>'.$response->content.'</text></error>');
+                                        '<text>'.$content_raw.'</text></error>');
                    } , %response_attrs);
             }
         }
