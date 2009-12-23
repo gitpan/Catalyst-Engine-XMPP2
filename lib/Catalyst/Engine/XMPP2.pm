@@ -1,12 +1,12 @@
 {   package Catalyst::Engine::XMPP2;
     use strict;
     use warnings;
-    our $VERSION = '0.3';
+    our $VERSION = '0.4';
     use base qw(Catalyst::Engine::Embeddable);
     use Event qw(loop);
     use Encode;
     use HTTP::Request;
-    use Net::XMPP2::Connection;
+    use AnyEvent::XMPP::Connection;
     use UNIVERSAL qw(isa);
 
     __PACKAGE__->mk_accessors(qw( connections ));
@@ -78,11 +78,11 @@
         delete $template{jid};
         delete $template{resource};
 
-        #$app->log->debug('Initializing Net::XMPP2::Connection objects');
+        #$app->log->debug('Initializing AnyEvent::XMPP::Connection objects');
 
         foreach my $resource (@resources) {
             $self->connections->{$resource} =
-              Net::XMPP2::Connection->new(resource => $resource,
+              AnyEvent::XMPP::Connection->new(resource => $resource,
                                           %template);
         }
 
@@ -98,7 +98,7 @@
                bind_error => sub {
                    die 'Error binding resource '.$resource.': '.shift;
                },
-               # the four events are registered as separate to let Net::XMPP2
+               # the four events are registered as separate to let AnyEvent::XMPP
                # handle all other types of events, but we can actually process
                # them the same way.
                iq_get_request_xml => sub {
@@ -129,6 +129,12 @@
     sub handle_xmpp_node {
         my ($self, $app, $resource, $node, $type) = @_;
 
+        # we're going to avoid doing any action on a message of type "error"
+        return if 
+          defined $type &&
+            $type eq 'message' &&
+              defined $node->attr('type') &&
+                $node->attr('type') eq 'error';
 
         my $config = $app->config->{'Engine::XMPP2'};
         my $url = 'xmpp://'.$config->{username}.'@'.$config->{domain}.'/'.$resource;
@@ -226,7 +232,7 @@ __END__
 
 =head1 NAME
 
-Catalyst::Engine::XMPP2 - Net::XMPP2::Connection Catalyst Engine
+Catalyst::Engine::XMPP2 - AnyEvent::XMPP::Connection Catalyst Engine
 
 =head1 SYNOPSIS
 
@@ -327,12 +333,8 @@ while keeping a single control thread for the XMPP connections.
 The other option would be to implement a balancer server that would
 accept several connections for the same JID and connect only once for
 each JID, dispatching a message sent to some JID among each of the
-candidate connections.
-
-The second option is probably a better idea, as the handling of that
-number of connections could be implemented in C, for instance, and
-using low-level OS operations, like libevent for linux, making it
-easier to scale in several machines.
+candidate connections. DJabberd::Plugin::Balancer implements that for
+the DJabberd server.
 
 =item Error handling
 
@@ -381,7 +383,7 @@ error codes. Most error codes in this list could be mapped literally.
 =head1 USAGE
 
 The 'Engine::XMPP2' configuration key expects a hashref that will be
-sent to Net::XMPP2::Connection->new dereferenced. It's important to
+sent to AnyEvent::XMPP::Connection->new dereferenced. It's important to
 notice, however, that setting "jid" or "resource" in this hash has no
 effect as this values will be set according to the Action-Resource
 mapping.
@@ -400,7 +402,7 @@ and use one of the following methods
 
 This will call send_message on the connection that generated the
 current request with the parameters as described in
-Net::XMPP2::Connection.
+AnyEvent::XMPP::Connection.
 
 One important hint: if $create_db is a CODE ref, it will be executed
 with a XML::Writer object in UNSAFE mode as its first argument, which
@@ -456,7 +458,7 @@ This method is called by the stanza callbacks in the connections.
 =head1 SEE ALSO
 
 L<Catalyst::Engine>, L<Catalyst::Engine::CGI>, L<HTTP::Request>,
-L<HTTP::Reponse>, L<Catalyst>, L<Net::XMPP2::Connection>,
+L<HTTP::Reponse>, L<Catalyst>, L<AnyEvent::XMPP::Connection>,
 L<Catalyst::Engine::Embeddable>
 
 =head1 AUTHORS

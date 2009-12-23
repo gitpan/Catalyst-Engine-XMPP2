@@ -24,7 +24,7 @@ my %connections;
         return;
     }
 };
-{   package Net::XMPP2::Connection;
+{   package AnyEvent::XMPP::Connection;
     no warnings;
     sub new {
         my $class = shift;
@@ -101,12 +101,12 @@ for my $c (keys %connections) {
     $connections{$c}{callbacks}{stream_ready}->();
 }
 
-require Net::XMPP2::Parser;
+require AnyEvent::XMPP::Parser;
 
 
 {
     # now let's do an iq request...
-    my $parser = Net::XMPP2::Parser->new();
+    my $parser = AnyEvent::XMPP::Parser->new();
     $parser->set_stanza_cb
       (sub {
            my ($parser, $node) = @_;
@@ -131,7 +131,7 @@ require Net::XMPP2::Parser;
 }
 {
     # now let's do an iq that returns a xml body...
-    my $parser = Net::XMPP2::Parser->new();
+    my $parser = AnyEvent::XMPP::Parser->new();
     $parser->set_stanza_cb
       (sub {
            my ($parser, $node) = @_;
@@ -156,7 +156,7 @@ require Net::XMPP2::Parser;
 }
 {
     # now let's do a message that messages us back...
-    my $parser = Net::XMPP2::Parser->new();
+    my $parser = AnyEvent::XMPP::Parser->new();
     $parser->set_stanza_cb
       (sub {
            my ($parser, $node) = @_;
@@ -181,7 +181,7 @@ require Net::XMPP2::Parser;
 }
 {
     # now let's do a presence that presences us back...
-    my $parser = Net::XMPP2::Parser->new();
+    my $parser = AnyEvent::XMPP::Parser->new();
     $parser->set_stanza_cb
       (sub {
            my ($parser, $node) = @_;
